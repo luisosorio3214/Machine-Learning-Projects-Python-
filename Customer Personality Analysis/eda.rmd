@@ -1,0 +1,107 @@
+---
+title: "Exploratory Data Analysis"
+author: "Group 4"
+date: "2023-04-17"
+output:
+  pdf_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(skimr)
+library(corrplot)
+library(gridExtra)
+```
+
+## Date Importation and Correction
+
+```{r}
+df = read.csv("./marketing_campaign.csv")
+glimpse(df)
+```
+We have 2240 observations and 29 variables.
+
+One of our variables is ID.
+3 variables are listed as characters: Education, Marital_Status, and Dt_Customer
+The other 25 variables are numerical variables.
+
+Several data types need to be corrected: Dt_Customer, Education, and Marital_Status.
+
+```{r}
+df = df |> mutate(
+    Dt_Customer = as.Date(Dt_Customer,"%d-%m-%Y"),
+    Education = as.factor(Education),
+    Marital_Status = as.factor(Marital_Status))
+```
+
+## Sumamry Statistics
+
+```{r}
+df |> skim_without_charts()
+```
+
+This summary has found that our income variable is missing 24 values, which we will drop; additionally, the mean is larger than the median so there might be skewing.
+
+```{r}
+df = df |> drop_na()
+```
+
+## Visualization of data
+
+Several of our variables are a simple TRUE/FALSE response, and several of the variables will be used as response variables. So we only have a limited number of numerical variables to check for outliers. 
+
+```{r}
+par(mfrow=c(2,3))
+boxplot(df$Income,main="Income")
+boxplot(df$Year_Birth, main="Year of Birth")
+boxplot(df$Recency,main="Number of days since last purchase")
+boxplot(df$Kidhome,main="Number of Kids at home")
+boxplot(df$Teenhome,main="Number of Teenagers at home")
+par(mfrow=c(1,1))
+```
+
+Both our Age and Income variables appear to have severe outliers. There are only four observations that are outliers so they might be errors from data entry and will be removed.
+
+```{r}
+df = df |> 
+    filter(Income < 600000 & Year_Birth > 1920)
+```
+
+
+For a brief and simple look at how our variables are related, we can look at the correlation of our numeric variables.
+
+```{r}
+correlations = df |> 
+    select_if(is.numeric) |> 
+    select(-c(ID,AcceptedCmp1,AcceptedCmp2, AcceptedCmp3,AcceptedCmp4,AcceptedCmp5,
+              Response,Complain,Z_CostContact,Z_Revenue)) |> 
+    cor()
+corrplot(correlations, method = 'color', order = 'alphabet',type = 'lower', diag = FALSE)
+```
+
+## Calculated fields
+For future use in analysis, we will not calculate several variables as they may be useful later.
+
+```{r}
+df = df |> 
+    group_by(ID) |> 
+    mutate(
+        total_spent = sum(MntWines,MntFruits,MntMeatProducts,MntFishProducts,
+                          MntSweetProducts,MntGoldProds),
+        total_response = sum(AcceptedCmp1,AcceptedCmp2,AcceptedCmp3,
+                             AcceptedCmp4,AcceptedCmp5,Response),
+        CustomerAge = 2021 - Year_Birth,
+        TimeASCustomer = (as.Date("2021-01-01") - Dt_Customer)/365,
+        )
+```
+
+## Export the data
+```{r,eval=FALSE}
+write.csv(df,"./cleaned.csv")
+```
+
+
+
+
